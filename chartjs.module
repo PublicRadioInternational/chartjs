@@ -1,0 +1,229 @@
+<?php
+/**
+ * @file
+ * Module file for chartjs.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function chartjs_menu() {
+  $items = array();
+  $items['admin/config/chartjs'] = array(
+    'title' => 'Global settings for chart.js',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('chartjs_admin'),
+    'access arguments' => array('administer chartjs'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'chartjs.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function chartjs_permission() {
+  return array(
+    'administer chartjs' => array(
+      'title' => t('Access administration interface for chartjs.'),
+      'description' => t('Allow users to access chartjs administration interface.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function chartjs_libraries_info() {
+  $libraries = array();
+  $libraries['Chart.js'] = array(
+    'name' => 'Chart.js',
+    'vendor url' => 'http://www.chartjs.org/',
+    'download url' => 'https://github.com/nnnick/Chart.js',
+    'version callback' => 'chartjs_library_version_callback',
+    'files' => array(
+      'js' => array(
+        'Chart.js',
+      ),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Chartjs library version.
+ *
+ * @returns string
+ *   String representing the version number for the installed chartjs library.
+ */
+function chartjs_library_version_callback() {
+  return TRUE;
+}
+
+/**
+ * Implements hook_js_alter().
+ */
+function chartjs_js_alter(&$javascript) {
+  // If the chartjs library is loaded, add global settings.
+  if (isset($javascript['sites/all/libraries/Chart.js/Chart.js'])) {
+    $settings = chartjs_get_global_settings_js();
+    drupal_add_js($settings, array(
+      'type' => 'inline',
+      'scope' => 'header',
+      'every_page' => FALSE,
+    ));
+  }
+}
+
+/**
+ * Fetch global settings for chartjs.
+ *
+ * @return array
+ *   Array of global settings.
+ */
+function chartjs_get_global_settings() {
+  $properties = array(
+    'animation',
+    'animationSteps',
+    'animationEasing',
+    'showScale',
+    'scaleOverride',
+    'scaleSteps',
+    'scaleStepWidth',
+    'scaleStartValue',
+    'scaleLineColor',
+    'scaleLineWidth',
+    'scaleShowLabels',
+    'scaleLabel',
+    'scaleIntegersOnly',
+    'scaleBeginAtZero',
+    'scaleFontFamily',
+    'scaleFontSize',
+    'scaleFontStyle',
+    'scaleFontStyle',
+    'scaleFontColor',
+    'responsive',
+    'showTooltips',
+    'customTooltips',
+    'tooltipFillColor',
+    'tooltipFontFamily',
+    'tooltipFontSize',
+    'tooltipFontStyle',
+    'tooltipFontColor',
+    'tooltipTitleFontFamily',
+    'tooltipTitleFontSize',
+    'tooltipTitleFontStyle',
+    'tooltipTitleFontColor',
+    'tooltipYPadding',
+    'tooltipXPadding',
+    'tooltipCaretSize',
+    'tooltipCornerRadius',
+    'tooltipXOffset',
+    'tooltipTemplate',
+    'multiTooltipTemplate',
+    'legendTemplate',
+  );
+
+  $global_settings = array();
+  foreach ($properties as $property) {
+    $global_settings[$property] = variable_get('chartjs_' . $property);
+  }
+
+  return $global_settings;
+}
+
+/**
+ * Fetch global settings json for chartjs.
+ *
+ * @return string
+ *   String of global settings js.
+ */
+function chartjs_get_global_settings_js() {
+  $settings = chartjs_get_global_settings();
+  return 'Chart.defaults.global = jQuery.extend({}, Chart.defaults.global, ' . chartjs_json_encode($settings) . ');';
+}
+
+/**
+ * Returns a chart dom and js needed to render a chart.
+ *
+ * @param string $type
+ *   Type of chart that should be returned.
+ * @param array $data
+ *   Data that should be charted.
+ * @param string $id
+ *   Unique ID of chart.
+ * @param array $options
+ *   Options that override global defaults.
+ * @param int $width
+ *   Width of chart.
+ * @param int $height
+ *   Height of chart.
+ *
+ * @return string
+ *   String of global settings js.
+ */
+function chartjs_get_chart($type, $data, $id, $options = array(), $width = 400, $height = 400) {
+  return theme('chartjs', array(
+    'type' => $type,
+    'data' => $data,
+    'chart_id' => $id,
+    'options' => $options,
+    'width' => $width,
+    'height' => $height,
+  ));
+}
+
+/**
+ * Implements hook_theme().
+ */
+function chartjs_theme() {
+  return array(
+    'chartjs' => array(
+      'template' => 'tpl/chartjs',
+      'variables' => array(
+        'type' => 'Doughnut',
+        'data' => array(),
+        'chart_id' => 'RandomChart',
+        'options' => array(),
+        'width' => 400,
+        'height' => 400,
+      ),
+    ),
+  );
+}
+
+/**
+ * Converts an array to a json array with proper typing.
+ *
+ * @param array $data
+ *   Data that should be converted to json.
+ *
+ * @return string
+ *   String of json with proper types.
+ */
+function chartjs_json_encode($data) {
+  $typed_array = array();
+  foreach ($data as $key => $value) {
+    // Convert 'true' and 'false into TRUE and FALSE.
+    if ($value === 'true' || $value === 'false') {
+      $value = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    // Convert 'null' to NULL.
+    elseif ($value === 'null') {
+      $value = NULL;
+    }
+
+    // Convert numeric strings to ints.
+    elseif (is_numeric($value)) {
+      $value = (int)$value;
+    }
+
+    $typed_array[$key] = $value;
+  }
+
+  return json_encode($typed_array);
+}
